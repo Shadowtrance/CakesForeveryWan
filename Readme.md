@@ -19,6 +19,8 @@ Thanks
 * Roxas75 for the font and firmlaunchax on MSET (rxTools)
 * YifanLu and dukesrg for Spider3DSTools
 * naehrwert for p3ds
+* ChaN for FatFs
+* Normmatt for the sdmmc code.
 * The KARL and OSKA guys for providing example code and firmware offsets (bootstrap)
 * 3dbrew for info
 * Yellows8 for firmlaunchax and memchunkhax

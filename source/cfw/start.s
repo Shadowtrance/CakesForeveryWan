@@ -2,6 +2,11 @@
 .align 4
 .global _start
 _start:
+    b .brahmacompat
+
+arm9ep_backup: .long 0xFFFF0000
+
+.brahmacompat:
     @ Change the stack pointer
     mov sp, #0x27000000
 

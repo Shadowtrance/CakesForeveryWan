@@ -1,5 +1,6 @@
 #include "fs.h"
 
+#include <stddef.h>
 #include <draw.h>
 #include "fatfs/ff.h"
 
@@ -16,7 +17,7 @@ void mount_sd()
 
 void unmount_sd()
 {
-    f_mount((void *)0, "0:", 1);
+    f_mount(NULL, "0:", 1);
     print("Unmounted SD card");
 }
 

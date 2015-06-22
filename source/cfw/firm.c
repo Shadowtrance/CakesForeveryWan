@@ -97,6 +97,7 @@ void boot_firm()
 {
     print("Booting FIRM...");
 
+#ifndef ARM9_BRAHMA
     __asm__ (
         "push {r4-r12}\n\t"
         "msr cpsr_c, #0xDF\n\t"
@@ -133,6 +134,7 @@ void boot_firm()
         "pop {r4-r12}\n\t"
     );
     print("Set up MPU");
+#endif
 
     struct firm_section *sections = firm_loc + 0x40;
     memcpy32(sections[0].address, firm_loc + (uintptr_t)sections[0].offset, sections[0].size);
@@ -140,7 +142,7 @@ void boot_firm()
     memcpy32(sections[2].address, firm_loc + (uintptr_t)sections[2].offset, sections[2].size);
     print("Copied FIRM");
 
-    *(uint32_t *)0x1FFFFFF8 = *(uint32_t *)(firm_loc + 8);
+    *(uint32_t *)0x1FFFFFF8 = **(uint32_t **)(firm_loc + 8);
     print("Prepared arm11 entry");
 
     print("Booting...");

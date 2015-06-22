@@ -12,7 +12,6 @@ dir_build := build
 dir_out := out
 dir_tools := p3ds
 dir_patches := patches
-dir_top := $(PWD)
 
 ARM9FLAGS := -mcpu=arm946e-s -march=armv5te
 ARM11FLAGS := -mcpu=mpcore
@@ -25,12 +24,10 @@ get_objects = $(patsubst $(dir_source)/%.s, $(dir_build)/%.o, \
 			  $(patsubst $(dir_source)/%.c, $(dir_build)/%.o, \
 			  $(call rwildcard, $1, *.s *.c)))
 
-objects_lib := $(call get_objects, $(dir_source)/lib)
-objects_draw := $(dir_build)/mset_4x/draw.o $(dir_build)/mset_4x/memfuncs.o
-
 objects_launcher := $(call get_objects, $(dir_source)/launcher)
 
-objects_mset_4x := $(objects_draw) \
+objects_mset_4x := $(dir_build)/mset_4x/lib/draw.o \
+				   $(dir_build)/mset_4x/lib/memfuncs.o \
 				   $(patsubst $(dir_build)/launcher/%, $(dir_build)/mset_4x/%, \
 				   $(objects_launcher) $(objects_mset))
 objects_spider_4x := $(patsubst $(dir_build)/launcher/%, $(dir_build)/spider_4x/%, \
@@ -40,14 +37,23 @@ objects_spider_5x := $(patsubst $(dir_build)/launcher/%, $(dir_build)/spider_5x/
 objects_spider_9x := $(patsubst $(dir_build)/launcher/%, $(dir_build)/spider_9x/%, \
 					 $(objects_launcher))
 
-objects_cfw := $(objects_lib) $(call get_objects, $(dir_source)/cfw)
+objects_lib := $(call get_objects, $(dir_source)/lib)
+objects_fatfs := $(call get_objects, $(dir_source)/cfw/fatfs)
+objects_cfw_base = $(filter-out $(objects_fatfs), $(call get_objects, $(dir_source)/cfw))
+
+objects_cfw := $(objects_lib) $(objects_cfw_base) $(objects_fatfs)
+objects_brahma := $(patsubst $(dir_build)/lib/%, $(dir_build)/brahma/lib/%, \
+				  $(objects_lib)) \
+				  $(patsubst $(dir_build)/cfw/%, $(dir_build)/brahma/%, \
+				  $(objects_cfw_base)) \
+				  $(objects_fatfs)
 
 rops := $(dir_build)/mset_4x/rop.dat $(dir_build)/spider_4x/rop.dat \
 		$(dir_build)/spider_5x/rop.dat $(dir_build)/spider_9x/rop.dat
 
 patch_files := $(dir_out)/cakes/patches/signatures.cake \
 			   $(dir_out)/cakes/patches/emunand.cake \
-	           $(dir_out)/cakes/patches/reboot.cake
+			   $(dir_out)/cakes/patches/reboot.cake
 
 provide_files := $(dir_out)/firmware_bin.here \
 				 $(dir_out)/slot0x25keyX_bin.here \
@@ -64,6 +70,9 @@ launcher: $(dir_out)/Cakes.dat
 
 .PHONY: patches
 patches: $(patch_files)
+
+.PHONY: brahma
+brahma: $(dir_build)/brahma/main.bin
 
 .PHONY: clean
 clean:
@@ -115,8 +124,15 @@ $(dir_build)/%/main.bin: $(dir_build)/%/main.elf
 	$(OC) -S -O binary $< $@
 
 # Different flags for different things
+$(dir_build)/brahma/main.elf: ASFLAGS := $(ARM9FLAGS) $(ASFLAGS)
+$(dir_build)/brahma/main.elf: CFLAGS := -DARM9 -DARM9_BRAHMA $(ARM9FLAGS) $(CFLAGS)
+$(dir_build)/brahma/main.elf: $(objects_brahma)
+	# TODO: Undefined reference to '__aeabi_uidiv'
+	$(CC) -nostartfiles $(LDFLAGS) -T linker_cfw.ld $(OUTPUT_OPTION) $^
+	#$(LD) $(LDFLAGS) -T linker_cfw.ld $(OUTPUT_OPTION) $^
+
 $(dir_build)/cfw/main.elf: ASFLAGS := $(ARM9FLAGS) $(ASFLAGS)
-$(dir_build)/cfw/main.elf: CFLAGS := -DARM9 $(ARM9FLAGS) $(CFLAGS)
+$(dir_build)/cfw/main.elf: CFLAGS := -DARM9 -DARM9_CFW $(ARM9FLAGS) $(CFLAGS)
 $(dir_build)/cfw/main.elf: $(objects_cfw)
 	# TODO: Undefined reference to '__aeabi_uidiv'
 	$(CC) -nostartfiles $(LDFLAGS) -T linker_cfw.ld $(OUTPUT_OPTION) $^
@@ -148,8 +164,8 @@ $(dir_build)/spider_9x/main.elf: $(objects_spider_9x)
 
 $(dir_build)/patches/%/*.cake: $(dir_patches)/%
 	@mkdir -p $(@D)
-	sh -c "cd $(@D); armips $(dir_top)/$</patches.s"
-	sh -c "cd $(@D); armips $(dir_top)/$</bundle.s"
+	sh -c "cd $(@D); armips $(realpath $<)/patches.s"
+	sh -c "cd $(@D); armips $(realpath $<)/bundle.s"
 
 $(dir_build)/%.o: $(dir_source)/%.c
 	@mkdir -p "$(@D)"
@@ -167,6 +183,14 @@ $(dir_build)/cfw/fatfs/%.o: $(dir_source)/cfw/fatfs/%.s
 	@mkdir -p "$(@D)"
 	$(COMPILE.s) -mthumb -mthumb-interwork $(OUTPUT_OPTION) $<
 
+$(dir_build)/brahma/%.o: $(dir_source)/cfw/%.c
+	@mkdir -p "$(@D)"
+	$(COMPILE.c) $(OUTPUT_OPTION) $<
+
+$(dir_build)/brahma/%.o: $(dir_source)/cfw/%.s
+	@mkdir -p "$(@D)"
+	$(COMPILE.s) $(OUTPUT_OPTION) $<
+
 .SECONDEXPANSION:
 $(dir_build)/%.o: $(dir_source)/launcher/$$(notdir $$*).c
 	@mkdir -p "$(@D)"
@@ -178,7 +202,7 @@ $(dir_build)/%.o: $(dir_source)/launcher/$$(notdir $$*).s
 	$(COMPILE.s) $(OUTPUT_OPTION) $<
 
 .SECONDEXPANSION:
-$(objects_draw): $(dir_build)/%.o: $(dir_source)/lib/$$(notdir $$*).c
+$(dir_build)/%.o: $(dir_source)/lib/$$(notdir $$*).c
 	@mkdir -p "$(@D)"
 	$(COMPILE.c) $(OUTPUT_OPTION) $<
 

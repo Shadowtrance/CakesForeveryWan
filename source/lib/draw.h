@@ -5,6 +5,9 @@
 
 #include <stdint.h>
 
+#define SPACING_VERT 10
+#define SPACING_HORIZ 8
+
 enum screen {
     screen_top_left,
     screen_top_right,
@@ -12,15 +15,21 @@ enum screen {
 };
 
 #if defined(ENTRY_MSET)
+
 __attribute__((unused))
 static enum screen *print_screen = (enum screen *)0x14A00001;
 
-void draw_init();
 #elif defined(ARM9)
+
 __attribute__((unused))
 static enum screen *print_screen = (enum screen *)0x20A00001;
 
+#endif
+
+#ifdef ARM9_CFW
 void draw_init(uint32_t *data);
+#else
+void draw_init();
 #endif
 
 void clear_screen(enum screen screen);
